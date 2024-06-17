@@ -1,0 +1,117 @@
+import argparse
+import xmltodict
+import csv
+import os
+from datetime import date
+
+task1_completed = False
+
+def extract_data_from_ckl(file_path):
+   # Function to extract data from XML file
+   with open(file_path, "r", encoding="utf-8") as file:
+       my_ckl = file.read()
+   my_dict = xmltodict.parse(my_ckl)
+   # Initialize an empty dictionary to store extracted data for different severity levels
+   extracted_data = {'High': [], 'Medium': [], 'Low': []}
+   # Extract source information from file name
+   file_name = os.path.basename(file_path)
+   file_name_parts = file_name.split('_')
+   security_name = file_name_parts[1]
+   file_date = file_name_parts[-1].split('.')[0]
+   source = security_name
+
+   for i in my_dict:
+       for p in my_dict[i]:
+           for t in my_dict[i][p]:
+               if t == "iSECURITY":
+                   for x in my_dict[i][p][t]:
+                       if x == "VULN":
+                           for q in my_dict[i][p][t][x]:
+                               # Initialize a dictionary to store extracted information for this item
+                               item_data = {}
+                               for r in q["SECURITY_DATA"]:
+                                   if r["VULN_ATTRIBUTE"] == "Vuln_Num":
+                                       item_data["Vuln_Num"] = r["ATTRIBUTE_DATA"]
+                                   elif r["VULN_ATTRIBUTE"] == "Severity":
+                                       item_data["Severity"] = r["ATTRIBUTE_DATA"].title()  # Capitalize severity
+                                   elif r["VULN_ATTRIBUTE"] == "Check_Content":
+                                       item_data["Check_Content"] = r["ATTRIBUTE_DATA"]
+                                   elif r["VULN_ATTRIBUTE"] == "Fix_Text":
+                                       item_data["Fix_Text"] = r["ATTRIBUTE_DATA"]
+                               # Extract status
+                               status = q["STATUS"]
+                               # Extract Name and IP Address from the outer layers
+                               item_data["Name"] = my_dict[i]["ASSET"]["HOST_NAME"]
+                               item_data["IP Address"] = my_dict[i]["ASSET"]["HOST_IP"]
+                               item_data["Status"] = status  # Add status to the item data
+                               # Add attribute for source
+                               item_data["Source"] = source
+                               item_data["Date"]=file_date
+                               # Append the extracted information to the appropriate list based on status and severity
+                               if status == "Open":
+                                   extracted_data[item_data["Severity"]].insert(0, item_data)
+                               elif status == "Not_Reviewed":
+                                   extracted_data[item_data["Severity"]].append(item_data)
+   return extracted_data
+
+def extract_data(file_path):
+   # Function to detect file type and call appropriate function
+   if file_path.endswith('.ckl'):
+       return extract_data_from_ckl(file_path)
+   else:
+       print(f"Unsupported file format: {file_path}. Please provide a .ckl file.")
+       return {}
+       
+def save_to_csv(data, output_file_prefix, output_dir):
+   # Function to save extracted data to a CSV file
+   for severity, records in data.items():
+       output_file = os.path.join(output_dir, f"{output_file_prefix}_{severity.lower()}.csv")
+       fieldnames = ['Name', 'IP Address', 'Vuln_Num', 'Severity', 'Check_Content', 'Fix_Text', 'Status', 'Source', 'Date']
+       # Check if the file already exists
+       if os.path.exists(output_file):
+           # If the file exists, open it in append mode
+           with open(output_file, 'a', newline='') as csvfile:
+               writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+               writer.writerows(records)
+       else:
+           # If the file doesn't exist, create it and write the header
+           with open(output_file, 'w', newline='') as csvfile:
+               writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+               writer.writeheader()
+               writer.writerows(records)
+def main():
+   # Hard-code the input directory and output directory here
+   input_dir = 'home/security/firstfolder/secondfolder/thirdfolder/fourthfolder'
+   output_dir = 'home/security/firstfolder/Output'
+   today = date.today()
+   output_file_prefix = f"extracted_data_{today}"
+   # Initialize an empty dictionary to store extracted data
+   all_extracted_data = {'High': [], 'Medium': [], 'Low': []}
+   # Process all .ckl files in the specified directory
+   for file_name in os.listdir(input_dir):
+       file_path = os.path.join(input_dir, file_name)
+       if file_path.endswith('.ckl'):
+           # Extract data from the CKL file
+           extracted_data = extract_data(file_path)
+           # Merge extracted data from all files
+           for severity, records in extracted_data.items():
+               all_extracted_data[severity].extend(records)
+   # Save all severity level data to respective CSV files
+   for severity, records in all_extracted_data.items():
+       output_file = os.path.join(output_dir, f"{output_file_prefix}_{severity.lower()}.csv")
+       fieldnames = ['Name', 'IP Address', 'Vuln_Num', 'Severity', 'Check_Content', 'Fix_Text', 'Status', 'Source', 'Date']
+       # Check if the file already exists
+       if os.path.exists(output_file):
+           # If the file exists, open it in append mode
+           with open(output_file, 'a', newline='') as csvfile:
+               writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+               writer.writerows(records)
+       else:
+           # If the file doesn't exist, create it and write the header
+           with open(output_file, 'w', newline='') as csvfile:
+               writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+               writer.writeheader()
+               writer.writerows(records)
+
+if __name__ == "__main__":
+   main()
