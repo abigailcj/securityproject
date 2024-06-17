@@ -1,0 +1,51 @@
+#!/bin/bash
+echo "Running Security"
+# Define the path to the CKL file directory
+ckl_filepath='home/security'
+# Define the path to the log file
+log_file='/var/log/security.log'
+# Ensure the log file and directory have the correct permissions
+sudo touch "$log_file"
+sudo chmod 666 "$log_file"
+# Function to log messages with the desired format
+log_message() {
+   local timestamp=$(date '+%b %d %H:%M:%S')
+   local hostname=$(hostname)
+   local message="$1"
+   echo "$timestamp $hostname $message" >> "$log_file"
+}
+# Function to log task start time
+log_task_start() {
+   local task_name="$1"
+   log_message "Start $task_name"
+}
+# Function to log task end time
+log_task_end() {
+   local task_name="$1"
+   log_message "End $task_name"
+}
+# Log the start of the Security evaluation
+log_message "Security evaluation started"
+# Record start time of Security evaluation
+start_time=$(date +%s)
+# Log start time for Bash.sh script
+log_task_start "redactedbash.sh"
+# Run the redactedbash.sh script with sudo and pass the OutputPath argument
+sudo bash home/security/firstfolder/redactedbash.sh --OutputPath home/security/firstfolder/secondfolder/thirdfolder/fourthfolder >> "$log_file" 2>&1
+# Log end time for redactedbash.sh script
+log_task_end "redactedbash.sh"
+# Log start time for redactedpython.py script
+log_task_start "redactedpython.py"
+# Run the redactedpython.py script and pass the CKL file path as an argument
+# Run the redactedpython.py script and pass the CKL file path as an argument
+sudo python3 home/security/redactedpython.py "$ckl_filepath" >> "$log_file" 2>&1
+# Log end time for redactedpython.py script
+log_task_end "redactedpython.py"
+# Calculate total time taken for security evaluation
+end_time=$(date +%s)
+total_time=$((end_time - start_time))
+# Log total time taken for security evaluation
+log_message "Total Time : $(date -d@$total_time -u +%H:%M:%S)"
+# Log the completion of the security evaluation
+log_message "Security evaluation completed"
+echo "Security evaluation completed"
